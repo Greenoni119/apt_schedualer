@@ -26,13 +26,13 @@ export function DatePicker({ date, onDateChange }: DatePickerProps) {
     [key: string]: { available: number }
   };
 
-  // Calculate available days based on some business rules
+  // Calculate available days based on business rules
   const getAvailableDays = (): AvailableDaysType => {
     // Generate dynamic availability for current month and next month
     const result: AvailableDaysType = {};
     
-    // Current date plus 30 days
-    for (let i = 0; i < 30; i++) {
+    // Current date plus 90 days (3 months)
+    for (let i = 0; i < 90; i++) {
       const date = addDays(today, i);
       // Skip weekends
       if (isWeekend(date)) continue;
@@ -40,8 +40,9 @@ export function DatePicker({ date, onDateChange }: DatePickerProps) {
       // Format date as YYYY-MM-DD
       const dateKey = format(date, 'yyyy-MM-dd');
       
-      // Random availability between 1-10 slots
-      const available = Math.floor(Math.random() * 10) + 1;
+      // Default to 3 available slots for all days
+      // This would be replaced with actual database lookup in a real app
+      const available = 3;
       result[dateKey] = { available };
     }
     
@@ -70,8 +71,8 @@ export function DatePicker({ date, onDateChange }: DatePickerProps) {
         day > maxDate;
       
       const slotsAvailable = availableDays[dateKey]?.available || 0;
-      const hasHighAvailability = slotsAvailable >= 5;
-      const hasLowAvailability = slotsAvailable > 0 && slotsAvailable < 5;
+      const hasHighAvailability = slotsAvailable >= 3;
+      const hasLowAvailability = slotsAvailable > 0 && slotsAvailable < 3;
       
       return {
         date: day,

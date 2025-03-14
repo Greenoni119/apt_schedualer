@@ -38,16 +38,16 @@ const generateTimeSlots = (selectedDate: Date, durationMinutes: number = 30): Ti
   const endTime = new Date(baseDate);
   endTime.setHours(endHour, 0, 0, 0);
   
-  // Generate fake availability data - in a real app this would come from a database
-  const generateAvailability = (hour: number, minute: number): number => {
-    // Make mid-morning and mid-afternoon busier
-    if ((hour === 10 || hour === 11 || hour === 14 || hour === 15) && minute === 0) {
-      return Math.floor(Math.random() * 2); // 0-1 slots (busy)
-    } else if (hour === 12) {
-      return Math.floor(Math.random() * 3) + 3; // 3-5 slots (lunch hour - more available)
-    } else {
-      return Math.floor(Math.random() * 4) + 1; // 1-4 slots (normal availability)
+  // Generate availability data - in a real app this would come from a database
+  const generateAvailability = (hour: number, minute: number, isPast: boolean): number => {
+    // If the slot is in the past, it has 0 availability
+    if (isPast) {
+      return 0;
     }
+    
+    // Default to 3 available slots for all time slots
+    // In a real app, this would be adjusted based on existing appointments in database
+    return 3;
   };
   
   // Generate slots until we reach the end time
@@ -58,7 +58,7 @@ const generateTimeSlots = (selectedDate: Date, durationMinutes: number = 30): Ti
     // Check if this slot is in the past (for today's date)
     const isPast = isSameDay(baseDate, now) && currentTime < now;
     
-    const available = generateAvailability(hour, minute);
+    const available = generateAvailability(hour, minute, isPast);
     
     // Determine slot status
     let status: 'available' | 'limited' | 'busy' | 'past' = 'available';
@@ -66,7 +66,7 @@ const generateTimeSlots = (selectedDate: Date, durationMinutes: number = 30): Ti
       status = 'past';
     } else if (available === 0) {
       status = 'busy';
-    } else if (available <= 2) {
+    } else if (available === 1) {
       status = 'limited';
     }
     
@@ -115,9 +115,43 @@ export function TimeSlots({
     // Always generate time slots, using current date as fallback
     const date = selectedDate || new Date();
     console.log("Using date for time slots:", date);
-    const slots = generateTimeSlots(date, durationMinutes || 30);
-    console.log("Generated time slots:", slots.length);
-    setTimeSlots(slots);
+    
+    // For demo purposes, using localStorage to simulate database availability tracking
+    // In a real app, this would use the API
+    const simulateAvailability = () => {
+      try {
+        const storageKey = `appointment_availability_${date.toISOString().split('T')[0]}`;
+        const storedAvailability = localStorage.getItem(storageKey);
+        let availability = storedAvailability ? JSON.parse(storedAvailability) : {};
+        
+        // Generate base slots
+        const baseSlots = generateTimeSlots(date, durationMinutes || 30);
+        
+        // Apply any stored availability data
+        const updatedSlots = baseSlots.map(slot => {
+          if (availability[slot.id] !== undefined) {
+            return {
+              ...slot,
+              available: availability[slot.id],
+              status: 
+                slot.status === 'past' ? 'past' : 
+                availability[slot.id] === 0 ? 'busy' : 
+                availability[slot.id] === 1 ? 'limited' : 'available'
+            };
+          }
+          return slot;
+        });
+        
+        setTimeSlots(updatedSlots);
+      } catch (error) {
+        console.error("Error simulating availability:", error);
+        // Fall back to generated slots if localStorage fails
+        const slots = generateTimeSlots(date, durationMinutes || 30);
+        setTimeSlots(slots);
+      }
+    };
+    
+    simulateAvailability();
   }, [selectedDate, durationMinutes]);
   
   // Still render time slots UI even if no date is selected

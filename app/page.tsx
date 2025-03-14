@@ -22,9 +22,8 @@ export default function Home() {
       
       // Try the simplified endpoint
       try {
-        const aptNumber = Math.floor(1000 + Math.random() * 9000).toString();
+        // We will let the API generate the appointment number
         console.log('Sending appointment data:', {
-            apt_number: aptNumber,
             first_name: appointmentData.contactInfo.firstName,
             last_name: appointmentData.contactInfo.lastName,
             email: appointmentData.contactInfo.email,
@@ -42,7 +41,7 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             // Use exact column names for the scheduled table
-            apt_number: aptNumber, // Use the same apt_number we generated above
+            // Don't send apt_number - let the API generate it consistently
             first_name: appointmentData.contactInfo.firstName,
             last_name: appointmentData.contactInfo.lastName,
             email: appointmentData.contactInfo.email,
@@ -67,14 +66,20 @@ export default function Home() {
           
           // Get the appointment number from the result and store it for the confirmation screen
           if (result.data && result.data[0] && result.data[0].apt_number) {
-            confirmationData.appointmentNumber = result.data[0].apt_number;
-            console.log('Storing confirmation number:', result.data[0].apt_number);
+            // CRITICAL: Extract and store the exact confirmation number from the API response
+            const apiConfirmationNumber = result.data[0].apt_number;
+            confirmationData.appointmentNumber = apiConfirmationNumber;
+            console.log('CONFIRMATION NUMBER FROM API:', apiConfirmationNumber);
             
             // Store the confirmation data in sessionStorage so the form component can access it
             sessionStorage.setItem('appointmentConfirmation', JSON.stringify(confirmationData));
             
+            // Log the stored data to verify it's correct
+            const storedData = JSON.parse(sessionStorage.getItem('appointmentConfirmation') || '{}');
+            console.log('VERIFICATION - Stored confirmation data:', storedData);
+            
             // Wait a moment to ensure the data is stored before the form component tries to read it
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         } else {
           console.error('%c APPOINTMENT SAVE FAILED! ', 'background: red; color: white; font-size: 20px', result.error || result.details || 'Unknown error');

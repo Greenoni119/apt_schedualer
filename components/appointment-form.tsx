@@ -7,6 +7,7 @@ import { TimeSlots } from './time-slots';
 import { Button } from './ui/button';
 import { format } from 'date-fns';
 import { Label } from './ui/label';
+import { generateAppointmentPDF } from '@/lib/pdf/appointment-pdf';
 
 interface AppointmentFormProps {
   onSubmit?: (appointmentData: AppointmentData) => void;
@@ -125,6 +126,33 @@ export function AppointmentForm({ onSubmit }: AppointmentFormProps) {
         contactInfo.firstName && contactInfo.lastName && 
         (contactInfo.email || contactInfo.phone)) {
       
+      // Update availability in localStorage to simulate database update
+      try {
+        if (selectedDate && selectedTimeSlot) {
+          const dateKey = selectedDate.toISOString().split('T')[0];
+          const storageKey = `appointment_availability_${dateKey}`;
+          
+          // Get current availability
+          const storedAvailability = localStorage.getItem(storageKey);
+          let availability = storedAvailability ? JSON.parse(storedAvailability) : {};
+          
+          // Update the selected time slot availability
+          if (availability[selectedTimeSlot] !== undefined) {
+            // Decrease by 1, but never below 0
+            availability[selectedTimeSlot] = Math.max(0, availability[selectedTimeSlot] - 1);
+          } else {
+            // First booking for this time slot - start with 2 remaining (from default 3)
+            availability[selectedTimeSlot] = 2;
+          }
+          
+          // Save back to localStorage
+          localStorage.setItem(storageKey, JSON.stringify(availability));
+          console.log(`Updated availability for ${dateKey} ${selectedTimeSlot}:`, availability[selectedTimeSlot]);
+        }
+      } catch (error) {
+        console.error("Error updating local availability:", error);
+      }
+      
       const appointmentData: AppointmentData = {
         appointmentTypeId,
         date: selectedDate,
@@ -157,19 +185,19 @@ export function AppointmentForm({ onSubmit }: AppointmentFormProps) {
               console.log('Using confirmation number from API:', parsedData.appointmentNumber);
               setConfirmationNumber(parsedData.appointmentNumber);
             } else {
-              console.log('No confirmation number found in stored data, using fallback');
-              // Generate a random one if none was stored
-              setConfirmationNumber(`APT-${Math.floor(100000 + Math.random() * 900000)}`);
+              console.log('No confirmation number found in stored data, showing error');
+              setConfirmationNumber('ERROR: Missing appointment number');
+              setError('There was an issue generating your appointment number. Please contact support.');
             }
           } else {
-            console.log('No confirmation data found in sessionStorage, using fallback');
-            // Generate a random one if none was stored
-            setConfirmationNumber(`APT-${Math.floor(100000 + Math.random() * 900000)}`);
+            console.log('No confirmation data found in sessionStorage, showing error');
+            setConfirmationNumber('ERROR: Missing appointment data');
+            setError('There was an issue saving your appointment. Please contact support.');
           }
         } catch (e) {
           console.error('Error handling confirmation number:', e);
-          // Fallback to random number
-          setConfirmationNumber(`APT-${Math.floor(100000 + Math.random() * 900000)}`);
+          setConfirmationNumber('ERROR: System error');
+          setError('There was a system error processing your appointment. Please contact support.');
         }
         
         setIsSubmitting(false);
@@ -338,8 +366,37 @@ export function AppointmentForm({ onSubmit }: AppointmentFormProps) {
             variant="outline"
             className="border-2 border-gray-300"
             onClick={() => {
-              // In a real app, this would download or print the appointment details
-              console.log('Download appointment details');
+              // Get the appointment type details
+              const appointmentType = localAppointmentTypes.find(type => type.id === appointmentTypeId) || 
+                                     getAppointmentTypeById(appointmentTypeId);
+              
+              if (appointmentType && selectedDate) {
+                // Format the data for the PDF
+                const pdfData = {
+                  appointmentNumber: confirmationNumber,
+                  firstName: contactInfo.firstName,
+                  lastName: contactInfo.lastName,
+                  email: contactInfo.email,
+                  phone: contactInfo.phone,
+                  appointmentType: appointmentType.name,
+                  appointmentDate: format(selectedDate, 'EEEE, MMMM d, yyyy'),
+                  appointmentTime: selectedTimeSlot ? format(new Date(`2000-01-01T${selectedTimeSlot}`), 'h:mm a') : '',
+                  duration: `${appointmentType.duration} minutes`
+                };
+                
+                // Generate the PDF
+                const pdfOutput = generateAppointmentPDF(pdfData);
+                
+                // Create a link element and trigger download
+                const link = document.createElement('a');
+                link.href = pdfOutput;
+                link.download = `appointment-${confirmationNumber}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              } else {
+                console.error('Missing appointment type or date for PDF generation');
+              }
             }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">

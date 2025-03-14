@@ -57,6 +57,13 @@ export async function POST(request: Request) {
       }, { status: 500 });
     }
     
+    // For now, let's just log the intent to update availability
+    // and skip the actual API call until we set up the time_slots table
+    console.log('Would update availability for:', {
+      date: appointmentData.appointment_date,
+      time: appointmentData.appointment_time
+    });
+    
     // Return success with the created appointment data
     return NextResponse.json({ 
       success: true, 
